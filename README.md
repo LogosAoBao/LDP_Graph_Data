@@ -54,6 +54,11 @@ python plotting.py  # ↳ figs/*.png : ER_l1.png ... FB_clust.png + comm_cost.pn
 
 Figures are log-scaled where helpful; clustering-coef error (`clust`) and communication cost (`bits_per_user`, log-y) clearly separate RR / OUE / HR.
 
+### 4. Run the Web App
+```
+python app.py
+```
+
 ### 4. Tests (Optional)
 
 ```bash
