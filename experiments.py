@@ -20,7 +20,7 @@ GRAPH_LIST = [
     ("ER", gen_er(N_SYN, 0.01, SEED)),
     ("BA", gen_ba(N_SYN, 3, SEED)),
     ("WS", gen_ws(N_SYN, 10, 0.1, SEED)),
-    ("FB", load_facebook())      # ← 新增：真实 Facebook 图
+    # ("FB", load_facebook())      # ← 新增：真实 Facebook 图
 ]
 
 # ❷ 运行实验
