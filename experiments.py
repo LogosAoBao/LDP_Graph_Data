@@ -7,13 +7,13 @@ from simulation import simulate
 EPS_LIST   = [0.1, 1]
 MECH_LIST  = ["RR", "OUE", "HR"]
 SEED       = 42
-N_SYN      = 1_000               # 合成图节点数
+N_SYN      = 500               # 合成图节点数
 OUT_CSV    = "results/metrics.csv"
 
 # Facebook 子图
 from graphs import load_facebook
 fb_full = load_facebook()
-fb_graph = fb_full.subgraph(list(fb_full)[:1000]).copy()  # sample 1k nodes
+fb_graph = fb_full.subgraph(list(fb_full)[:N_SYN]).copy()  # sample 1k nodes
 
 # ❶ 准备所有图
 GRAPH_LIST = [
