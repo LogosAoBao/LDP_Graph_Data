@@ -49,11 +49,13 @@
       cursor: pointer;
       border: none;
     }
+    /* extra space between control-panel and charts */
     #charts-container {
-      margin-top: 20px;
+      margin-top: 2rem;
       padding: 0 2rem 2rem;
       max-width: 1200px;
-      margin: auto;
+      margin-left: auto;
+      margin-right: auto;
     }
     .chart-row {
       display: flex;
@@ -99,9 +101,31 @@
 
   <script>
     let currentParam = '';
-    document.getElementById('apply-btn').addEventListener('click', () => {
-      currentParam = document.getElementById('custom-input').value;
-      renderCharts();
+
+    document.getElementById('apply-btn').addEventListener('click', async () => {
+      const btn = document.getElementById('apply-btn');
+      const val = document.getElementById('custom-input').value;
+      currentParam = val;
+
+      // disable and show running state
+      btn.disabled    = true;
+      btn.textContent = 'Running…';
+
+      try {
+        const resp = await fetch(`/api/run?value=${encodeURIComponent(val)}`);
+        const json = await resp.json();
+        if (!resp.ok || json.status !== 'ok') {
+          throw new Error(json.error || resp.statusText);
+        }
+        // now that metrics.csv is fresh, re-render charts
+        await renderCharts();
+      } catch (err) {
+        console.error(err);
+        alert('Error running simulation: ' + err.message);
+      } finally {
+        btn.disabled    = false;
+        btn.textContent = 'Apply';
+      }
     });
 
     async function fetchData(param) {
@@ -117,11 +141,11 @@
       }, {});
     }
 
-    // Now computes symmetric 10% padding manually instead of using 'grace'
     function createChart(ctx, epsValues, datasets, title) {
+      // manual 10% symmetric padding
       const dataMin = Math.min(...epsValues);
       const dataMax = Math.max(...epsValues);
-      const pad = (dataMax - dataMin) * 0.10;  // 10% of the data range
+      const pad     = (dataMax - dataMin) * 0.10;
 
       new Chart(ctx, {
         type: 'line',
@@ -134,11 +158,11 @@
           },
           scales: {
             x: {
-              type: 'linear',               // numeric axis
-              min: dataMin - pad,           // explicit symmetric padding
-              max: dataMax + pad,
+              type: 'linear',
+              min:  dataMin - pad,
+              max:  dataMax + pad,
               title: { display: true, text: 'ε (epsilon)', font: { size: 10 } },
-              grid: { color: '#ebebed' },
+              grid:  { color: '#ebebed' },
               ticks: { font: { size: 10 } }
             },
             y: {
@@ -147,7 +171,7 @@
                 text: title.includes('L1') ? 'L1 Error' : 'L2 Error',
                 font: { size: 10 }
               },
-              grid: { color: '#ebebed' },
+              grid:  { color: '#ebebed' },
               ticks: { font: { size: 10 } }
             }
           }
@@ -159,42 +183,41 @@
       const container = document.getElementById('charts-container');
       container.innerHTML = '';
 
-      const data = await fetchData(currentParam);
-      const graphs = Object.keys(groupBy(data, 'graph'));
-      const metricGroups = ['l1', 'l2'];
-      const mechTypes = [...new Set(data.map(d => d.mech))];
-      const colors = ['#ef8476', '#f9db95', '#cde0a5', '#c5a8ce', '#8ccdbf', '#ff2d55'];
+      const data       = await fetchData(currentParam);
+      const graphs     = Object.keys(groupBy(data, 'graph'));
+      const metrics    = ['l1', 'l2'];
+      const mechTypes  = [...new Set(data.map(d => d.mech))];
+      const colors     = ['#ef8476','#f9db95','#cde0a5','#c5a8ce','#8ccdbf','#ff2d55'];
 
-      metricGroups.forEach(metric => {
+      metrics.forEach(metric => {
         const row = document.createElement('div');
         row.className = 'chart-row';
 
         graphs.forEach(graphName => {
-          const records = data.filter(d => d.graph === graphName);
-          const epsValues = [...new Set(records.map(r => r.eps))].sort((a, b) => a - b);
+          const records   = data.filter(d => d.graph === graphName);
+          const epsValues = [...new Set(records.map(r => r.eps))].sort((a,b)=>a-b);
 
-          const datasets = mechTypes.map((mech, i) => {
-            const mechData = records.filter(r => r.mech === mech);
-            const mapData = new Map(mechData.map(r => [r.eps, r[metric]]));
+          const datasets = mechTypes.map((mech,i) => {
+            const mechData = records.filter(r => r.mech===mech);
+            const mapData  = new Map(mechData.map(r=>[r.eps,r[metric]]));
             return {
               label: mech,
-              data: epsValues.map(eps => ({ x: eps, y: mapData.get(eps) })),
-              borderColor: colors[i],
-              backgroundColor: hexToRGBA(colors[i], 0.1),
-              tension: 0.3,
-              pointRadius: 3,
-              pointHoverRadius: 5,
-              fill: false
+              data:  epsValues.map(eps=>({x:eps,y:mapData.get(eps)})),
+              borderColor:   colors[i],
+              backgroundColor: hexToRGBA(colors[i],0.1),
+              tension:       0.3,
+              pointRadius:   3,
+              pointHoverRadius:5,
+              fill:          false
             };
           });
 
-          const card = document.createElement('div');
-          card.className = 'chart-card';
-
+          const card    = document.createElement('div');
+          card.className= 'chart-card';
           const titleEl = document.createElement('h2');
           titleEl.textContent = `${graphName} - ${metric.toUpperCase()} Error`;
+          const canvas  = document.createElement('canvas');
 
-          const canvas = document.createElement('canvas');
           card.appendChild(titleEl);
           card.appendChild(canvas);
           row.appendChild(card);
@@ -207,11 +230,9 @@
     }
 
     function hexToRGBA(hex, alpha) {
-      const bigint = parseInt(hex.slice(1), 16);
-      const r = (bigint >> 16) & 255;
-      const g = (bigint >> 8) & 255;
-      const b = bigint & 255;
-      return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      const bigint = parseInt(hex.slice(1),16);
+      const r = (bigint>>16)&255, g = (bigint>>8)&255, b = bigint&255;
+      return `rgba(${r},${g},${b},${alpha})`;
     }
 
     document.addEventListener('DOMContentLoaded', renderCharts);
