@@ -8,13 +8,21 @@ from simulation import simulate
 
 BASE     = os.path.dirname(__file__)
 CSV_PATH = os.path.join(BASE, 'results', 'metrics.csv')
+SEED      = 42
+EPS_LIST  = [0.1, 1]
+MECH_LIST = ["RR", "OUE", "HR"]
 
 app = Flask(__name__, static_folder='static', static_url_path='')
 
+def process_combo(params):
+        eps, mech, (gname, G) = params
+        t0 = time.time()
+        res = simulate(G, mech, eps, seed=SEED)
+        res.update(dict(graph=gname, mech=mech, eps=eps))
+        print(f"{gname:<3}  {mech}  ε={eps:<3}  ✓  {time.time()-t0:.1f}s")
+        return res
+
 def regenerate_metrics(n_syn: int):
-    SEED      = 42
-    EPS_LIST  = [0.1, 1]
-    MECH_LIST = ["RR", "OUE", "HR"]
     OUT_CSV   = CSV_PATH
 
     # Facebook 子图采样
@@ -28,13 +36,12 @@ def regenerate_metrics(n_syn: int):
         # ("FB", fb_graph)
     ]
 
+    import concurrent.futures
+    
     results = []
-    for eps, mech, (gname, G) in itertools.product(EPS_LIST, MECH_LIST, GRAPH_LIST):
-        t0  = time.time()
-        res = simulate(G, mech, eps, seed=SEED)
-        res.update(dict(graph=gname, mech=mech, eps=eps))
-        results.append(res)
-        print(f"{gname:<3}  {mech}  ε={eps:<3}  ✓  {time.time()-t0:.1f}s")
+    combos = list(itertools.product(EPS_LIST, MECH_LIST, GRAPH_LIST))
+    with concurrent.futures.ProcessPoolExecutor() as executor:
+        results = list(executor.map(process_combo, combos))
 
     pd.DataFrame(results).to_csv(OUT_CSV, index=False)
     print(f"\n全部完成，结果写入 {OUT_CSV}")
