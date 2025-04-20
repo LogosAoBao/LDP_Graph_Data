@@ -18,7 +18,7 @@ def gen_ws(n, k, beta, seed=None):
     return nx.watts_strogatz_graph(n, k, beta, seed=seed)
 
 # ❷ 读取 Facebook 图（pickle）
-def load_facebook(path: str = "data/graphs/facebook.pkl") -> nx.Graph:
+def load_facebook(path: str = "./data/graphs/facebook.pkl") -> nx.Graph:
     if not os.path.exists(path):
         raise FileNotFoundError(
             f"{path} 未找到，请先运行 download_facebook.py"
