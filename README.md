@@ -11,6 +11,9 @@ ldp_graph_privacy/
 ├── data/
 │   ├── graphs/   # facebook.pkl will be saved here
 │   └── raw/      # raw edge list (txt.gz) is cached here
+├── static/
+|   └── index.html  # frontend
+├── app.py          # backend
 ├── download_facebook.py   # download + pickle the SNAP FB graph
 ├── graphs.py              # ER / BA / WS generator + facebook loader
 ├── mechanisms.py          # RR · OUE · HR (Hadamard Response)
@@ -59,7 +62,7 @@ Figures are log-scaled where helpful; clustering-coef error (`clust`) and commun
 python app.py
 ```
 
-### 4. Tests (Optional)
+### 5. Tests (Optional)
 
 ```bash
 pytest -q
