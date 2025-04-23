@@ -1,49 +1,45 @@
 import numpy as np, networkx as nx
 from mechanisms import rr_encode, rr_decode, oue_encode, oue_decode, hr_encode, hr_aggregate
 from evaluation import degree_error, clustering_error, assortativity_error
+from evaluation import avg_clustering, edge_precision_recall
 
 
-def simulate(G: nx.Graph, mech: str, eps: float, seed=0):
+
+def simulate(graph, mechanism: str, eps: float, seed: int = 0):
     rng = np.random.default_rng(seed)
-    n = G.number_of_nodes()
-    A = nx.to_numpy_array(G, dtype=np.uint8)
+    n = len(graph)
+    A = nx.to_numpy_array(graph, dtype=np.uint8)
 
-    # --- encode ---
-    reports = []
-    for u in range(n):
-        vec = A[u]
-        if mech == "RR":
-            reports.append([rr_encode(int(b), eps, rng) for b in vec])
-        elif mech == "OUE":
-            reports.append(oue_encode(vec, eps, rng))
-        else:  # HR
-            reports.append(hr_encode(vec, eps, rng))
+    if mechanism == "RR":
+        reports = rr_encode(A, eps, rng)
+        col_prob = rr_decode(reports, eps).mean(axis=0)
 
-    # --- decode ---
-    if mech == "RR":
-        col_prob = [rr_decode(sum(col), n, eps) for col in zip(*reports)]
-        row_prob = [rr_decode(sum(row), n, eps) for row in reports]
-    elif mech == "OUE":
-        col_prob = oue_decode(np.array(reports), eps)
-        row_prob = oue_decode(np.array(reports).T, eps)
-    else:  # HR
-        col_prob = hr_aggregate(reports, n, eps)
-        # for symmetry just reuse col → row; HR already unbiased
-        row_prob = col_prob
+    elif mechanism == "OUE":
+        reports = oue_encode(A, eps, rng)
+        col_prob = oue_decode(reports, eps)
 
-    P = (np.tile(col_prob, (n, 1)) + np.tile(row_prob, (n, 1)).T) / 2
+    elif mechanism == "HR":
+        idxs, signs = hr_encode(A, eps, rng)
+        col_prob = hr_aggregate(idxs, signs, n, eps)[0]  # any row, all the same
 
-    # --- metrics ---
-    true_deg = A.sum(1)
-    est_deg = P.sum(1)
-    l1, l2 = degree_error(true_deg, est_deg)
-    clus_err = clustering_error(G, P)
-    assort_err = assortativity_error(G, P)
-
-    if mech == "HR":  # HR: index + bit  → log2(n)+1 bits
-        bits_per_user = int(np.ceil(np.log2(n))) + 1
     else:
-        bits_per_user = n
+        raise ValueError(f"unknown mechanism {mechanism}")
 
-    return dict(l1=l1, l2=l2, c=clus_err, a=assort_err,
-                bits=bits_per_user, graph="FB", mech=mech, eps=eps)
+    est_mat = np.tile(col_prob, (n, 1))  # simplified decode (row = col prob)
+    true_deg = A.sum(axis=1)
+    est_deg = est_mat.sum(axis=1)
+
+    l1 = np.mean(np.abs(true_deg - est_deg))
+    l2 = np.sqrt(np.mean((true_deg - est_deg) ** 2))
+    clust_err = abs(nx.average_clustering(graph) - avg_clustering(est_mat))
+    prec, rec = edge_precision_recall(graph, est_mat)
+
+    return {
+        "l1": l1,
+        "l2": l2,
+        "clust": clust_err,
+        "prec": prec,
+        "rec": rec,
+        "bits": reports.size if mechanism != "HR" else len(idxs) * (np.log2(n).astype(int) + 1),
+        "n_nodes": n
+    }

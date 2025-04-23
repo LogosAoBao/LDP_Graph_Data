@@ -14,8 +14,6 @@ import matplotlib.pyplot as plt
 CSV     = "results/metrics.csv"
 FIG_DIR = "figs"
 METRICS = ["l1", "l2", "clust"]   # clust = clustering‑coef error, may be absent
-
-
 def _ensure_file():
     if not os.path.exists(CSV):
         raise FileNotFoundError(

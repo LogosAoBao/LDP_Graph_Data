@@ -3,8 +3,8 @@ from graphs import gen_er, gen_ba, gen_ws, load_facebook
 from simulation import simulate
 
 # -------- 实验配置 --------
-#EPS_LIST   = [0.1, 0.5, 1, 2]
-EPS_LIST   = [0.1, 1]
+EPS_LIST   = [0.1, 0.2, 0.5, 1, 2]
+#EPS_LIST   = [0.1, 1]
 MECH_LIST  = ["RR", "OUE", "HR"]
 SEED       = 42
 N_SYN      = 500               # 合成图节点数

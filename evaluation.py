@@ -23,3 +23,29 @@ def assortativity_error(G: nx.Graph, P):
     except ZeroDivisionError:
         est_a = 0.0
     return abs(true_a - est_a)
+
+def avg_clustering(P):
+    """
+    P: 估计邻接矩阵（概率矩阵）→ 二值化后计算平均聚类系数
+    """
+    est_adj = (P > 0.5).astype(int)
+    G = nx.from_numpy_array(est_adj)
+    return nx.average_clustering(G)
+
+
+def edge_precision_recall(G: nx.Graph, P):
+    """
+    输入：真实图 G，估计概率矩阵 P
+    输出：边的 precision 和 recall（0.5 二值化为边）
+    """
+    n = len(G)
+    true_adj = nx.to_numpy_array(G, dtype=int)
+    est_adj = (P > 0.5).astype(int)
+
+    TP = np.logical_and(true_adj == 1, est_adj == 1).sum() // 2
+    FP = np.logical_and(true_adj == 0, est_adj == 1).sum() // 2
+    FN = np.logical_and(true_adj == 1, est_adj == 0).sum() // 2
+
+    precision = TP / (TP + FP + 1e-8)
+    recall = TP / (TP + FN + 1e-8)
+    return precision, recall
