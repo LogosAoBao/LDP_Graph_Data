@@ -76,6 +76,104 @@ def hr_aggregate(indices, signs, n, eps):
     prob = np.clip(prob, 0.0, 1.0)
     return np.tile(prob, (n, 1))               # (n,n) 概率矩阵
 
+
+def srr_encode(adj: np.ndarray, eps: float, rng: np.random.Generator, q: float = 0.1):
+    """
+    SRR 机制：先以概率 q 抽样，再对抽中的坐标使用 RR 编码
+    返回：位置数组 (u,v)，值数组 y
+    """
+    n = adj.shape[1]
+    sampled = rng.random(adj.shape) < q
+    reports = []
+    positions = []
+
+    p = np.exp(eps) / (np.exp(eps) + 1)
+    for u in range(adj.shape[0]):
+        for v in range(n):
+            if sampled[u, v]:
+                x = adj[u, v]
+                flip = rng.random() < (1 - p)
+                y = x if not flip else 1 - x
+                reports.append(y)
+                positions.append((u, v))
+    return np.array(positions), np.array(reports, dtype=np.uint8)
+
+def srr_decode(positions, reports, shape, eps: float):
+    """
+    将 SRR 上报重构为 (n,n) 概率矩阵
+    """
+    p = np.exp(eps) / (np.exp(eps) + 1)
+    q = 1 - p
+    A = np.zeros(shape, dtype=float)
+    C = np.zeros(shape, dtype=int)
+    for (u, v), y in zip(positions, reports):
+        A[u, v] += (y - q) / (p - q)
+        C[u, v] += 1
+    with np.errstate(divide='ignore', invalid='ignore'):
+        A /= C
+        A = np.nan_to_num(A, nan=0.0)
+    return A
+
+
+def boue_encode(adj: np.ndarray, eps: float, rng: np.random.Generator, B: int = 32):
+    """
+    分桶 OUE 编码：每个桶最多上传一条边，用 OUE 对桶内位置编码
+    返回：(n, B, m+1) 的三维编码张量
+    """
+    n = adj.shape[1]
+    m = int(np.ceil(n / B))
+    buckets = [[] for _ in range(B)]
+    for v in range(n):
+        h = v % B
+        buckets[h].append(v)
+
+    encoded = np.zeros((adj.shape[0], B, m + 1), dtype=np.uint8)
+    eps_per_bucket = eps
+    p = np.exp(eps_per_bucket) / (np.exp(eps_per_bucket) + m)
+    q = 1.0 / (np.exp(eps_per_bucket) + m)
+
+    for u in range(adj.shape[0]):
+        for b in range(B):
+            choices = [v for v in buckets[b] if adj[u, v] == 1]
+            if choices:
+                selected = rng.choice(choices)
+                idx = buckets[b].index(selected) + 1  # 1 ~ m
+            else:
+                idx = 0  # sentinel
+            vec = np.zeros(m + 1)
+            for i in range(m + 1):
+                vec[i] = rng.random() < (p if i == idx else q)
+            encoded[u, b] = vec
+    return encoded
+
+def boue_decode(encoded: np.ndarray, eps: float, n: int, B: int = 32):
+    """
+    解码 B-OUE，返回列概率向量 (n,)
+    """
+    m = int(np.ceil(n / B))
+    eps_per_bucket = eps
+    p = np.exp(eps_per_bucket) / (np.exp(eps_per_bucket) + m)
+    q = 1.0 / (np.exp(eps_per_bucket) + m)
+
+    est = np.zeros(n)
+    count = np.zeros(n)
+
+    for b in range(B):
+        start = b * m
+        for i in range(m):
+            v = start + i
+            if v >= n: continue
+            col = encoded[:, b, i + 1]
+            mean = col.mean()
+            est[v] += (mean - q) / (p - q)
+            count[v] += 1
+
+    with np.errstate(divide='ignore', invalid='ignore'):
+        est /= count
+        est = np.nan_to_num(est, nan=0.0)
+    return np.clip(est, 0.0, 1.0)
+
+
 # ------------------- tests -------------------
 if __name__ == "__main__":
     rng = np.random.default_rng(0)

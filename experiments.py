@@ -5,7 +5,9 @@ from simulation import simulate
 # -------- 实验配置 --------
 EPS_LIST   = [0.1, 0.2, 0.5, 1, 2]
 #EPS_LIST   = [0.1, 1]
-MECH_LIST  = ["RR", "OUE", "HR"]
+#MECH_LIST  = ["RR", "OUE", "HR"]
+MECH_LIST = ["RR", "OUE", "HR", "SRR", "BOUE"]
+
 SEED       = 42
 N_SYN      = 500               # 合成图节点数
 OUT_CSV    = "results/metrics.csv"
